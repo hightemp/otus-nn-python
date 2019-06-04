@@ -1,23 +1,50 @@
-FROM continuumio/anaconda3
+FROM nvidia/cuda:9.0-devel
 
-RUN conda config --add channels conda-forge
+MAINTAINER Artur Kadurin <artur@insilico.com>
 
-RUN conda install nb_conda -y && conda install obspy -y
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
-RUN conda install jupyter -y --quiet 
+RUN apt-get update --fix-missing && apt-get install -y wget bzip2 ca-certificates \
+    libglib2.0-0 libxext6 libsm6 libxrender1 \
+    git mercurial subversion
 
-RUN conda install -c conda-forge jupyter_contrib_nbextensions && jupyter contrib nbextension install --user 
+RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
+    wget --quiet https://repo.continuum.io/miniconda/Miniconda3-4.3.31-Linux-x86_64.sh -O ~/miniconda.sh && \
+    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh
 
-RUN rm -rf /root/.local/share/jupyter/nbextensions  
+RUN apt-get install -y curl grep sed dpkg
 
-RUN conda install pytorch torchvision cuda80 -c soumith
+ENV PATH /opt/conda/bin:$PATH
 
-RUN pip install tensorboardX
+RUN conda install pytorch torchvision cuda90 -c pytorch
 
-RUN pip install tensorflow
+RUN conda install ipython numpy pandas scikit-learn notebook matplotlib
 
-EXPOSE 8888
+RUN apt-get install -y vim tmux man htop
 
-WORKDIR /data
+RUN pip install progressbar2
 
-CMD jupyter notebook --notebook-dir=/data --ip='*' --allow-root --port=8888 --no-browser
+RUN conda install -y scikit-image
+
+RUN jupyter notebook --generate-config --allow-root && \
+	echo "c.NotebookApp.ip = '*'" >> ~/.jupyter/jupyter_notebook_config.py && \
+	echo "c.NotebookApp.token = ''" >> ~/.jupyter/jupyter_notebook_config.py && \
+	echo "c.NotebookApp.password = ''" >> ~/.jupyter/jupyter_notebook_config.py && \
+	echo "c.NotebookApp.open_browser = False" >> ~/.jupyter/jupyter_notebook_config.py && \
+	echo "c.NotebookApp.allow_remote_access = True" >> ~/.jupyter/jupyter_notebook_config.py && \
+	echo "c.NotebookApp.port = 8765" >> ~/.jupyter/jupyter_notebook_config.py 
+
+EXPOSE 8765
+
+WORKDIR /home/playground
+
+CMD [ "/bin/bash" ]
+
+COPY dataset.ipynb /home/playground/
+COPY homework.ipynb /home/playground/
+COPY pytorch.ipynb /home/playground/
+COPY utils.py /home/playground/
+COPY salt.py /home/playground/
+
+ENTRYPOINT jupyter notebook --no-browser --allow-root --port 8765
